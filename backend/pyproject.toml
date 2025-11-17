@@ -16,7 +16,8 @@ dependencies = [
     "psycopg2-binary (>=2.9.11,<3.0.0)",
     "redis (>=7.0.1,<8.0.0)",
     "celery (>=5.5.3,<6.0.0)",
-    "python-dotenv (>=1.2.1,<2.0.0)"
+    "python-dotenv (>=1.2.1,<2.0.0)",
+    "pydantic (>=2.12.4,<3.0.0)"
 ]
 
 
