@@ -213,3 +213,5 @@ __marimo__/
 node_modules/,
 
 build/.
+
+.idea
