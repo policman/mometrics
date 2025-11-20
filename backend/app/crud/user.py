@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.security import hash_password
 from app.models.user import User
 from app.schemas.user import UserCreate
 
@@ -18,11 +19,11 @@ def get_users(db: Session, skip: int = 0, limit: int = 100) -> list[User]:
     return (db.scalars(select(User).offset(skip).limit(limit))).all()
 
 def create_user(db: Session, user_in: UserCreate) -> User:
-    fake_hashed_password = f"not_really_hashed_{user_in.password}"
+    hashed = hash_password(user_in.password)
 
     user = User(
         email = user_in.email,
-        hashed_password = fake_hashed_password,
+        hashed_password = hashed,
         is_active = user_in.is_active,
         is_superuser = user_in.is_superuser
     )

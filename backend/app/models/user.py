@@ -1,5 +1,5 @@
 import uuid
-import datetime as dt
+from datetime import datetime as dt, UTC
 
 from app.db.base import Base
 from sqlalchemy import String, Boolean, DateTime
@@ -32,15 +32,15 @@ class User(Base):
         default=False,
         nullable=False,
     )
-    created_at: M[dt.datetime] = mc(
+    created_at: M[dt] = mc(
         DateTime(timezone=True),
-        default=dt.datetime.now(dt.UTC),
+        default=lambda: dt.now(UTC),
         nullable=False,
     )
-    updated_at: M[dt.datetime] = mc(
+    updated_at: M[dt] = mc(
         DateTime(timezone=True),
-        default=dt.datetime.now(dt.UTC),
-        onupdate=dt.datetime.now(dt.UTC),
+        default=lambda: dt.now(UTC),
+        onupdate=lambda: dt.now(UTC),
         nullable=False,
     )
 
