@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
+from pydantic import Field
 
 class Settings(BaseSettings):
     app_name: str = "Mometrics"
@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     db_user: str = "mometrics"
     db_password: str = "mometrics"
     db_name: str = "mometrics"
+
+    # JWT
+    secret_key: str = Field(default="dev_key", env="SECRET_KEY")
+    jwt_algorithm: str = Field(default="HS256", env="JWT_ALGORITHM")
+    access_token_expire_minutes: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
 
     model_config = SettingsConfigDict(
         env_file=".env",
