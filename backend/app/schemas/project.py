@@ -1,0 +1,20 @@
+from pydantic import Field, BaseModel
+import uuid
+import datetime as dt
+
+class ProjectBase(BaseModel):
+    name: str = Field(max_length=100, default="Unnamed")
+    description: str | None = None
+    is_active: bool = True
+
+class ProjectCreate(ProjectBase):
+    pass
+
+class ProjectRead(ProjectBase):
+    id: uuid.UUID
+    owner_id: uuid.UUID | None
+    created_at: dt.datetime
+    updated_at: dt.datetime
+
+    class Config:
+        from_attributes = True

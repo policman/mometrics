@@ -1,46 +1,52 @@
 import uuid
-from datetime import datetime as dt, UTC
+from datetime import datetime as dt
 
 from app.db.base import Base
-from sqlalchemy import String, Boolean, DateTime
-from sqlalchemy.orm import Mapped as M, mapped_column as mc
+from sqlalchemy import String, Boolean, DateTime, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.dialects.postgresql import UUID
 
 class User(Base):
     __tablename__ = "users"
 
-    id: M[uuid.UUID] = mc(
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         primary_key=True,
-        default=uuid.uuid4()
+        default=uuid.uuid4
     )
-    email: M[str] = mc(
+    email: Mapped[str] = mapped_column(
         String(320),
         unique=True,
         index=True,
         nullable=False,
     )
-    hashed_password: M[str] = mc(
+    hashed_password: Mapped[str] = mapped_column(
         String(256),
         nullable=False,
     )
-    is_active: M[bool] = mc(
+    is_active: Mapped[bool] = mapped_column(
         Boolean,
         default=True,
         nullable=False,
     )
-    is_superuser: M[bool] = mc(
+    is_superuser: Mapped[bool] = mapped_column(
         Boolean,
         default=False,
         nullable=False,
     )
-    created_at: M[dt] = mc(
+    created_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: dt.now(UTC),
+        default=func.now(),
         nullable=False,
     )
-    updated_at: M[dt] = mc(
+    updated_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: dt.now(UTC),
-        onupdate=lambda: dt.now(UTC),
+        server_default=func.now(),
+        onupdate=func.now(),
         nullable=False,
+    )
+
+    projects: Mapped[list["Project"]] = relationship(
+        back_populates="owner"
     )
 

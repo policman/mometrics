@@ -1,4 +1,5 @@
 import uuid
+from typing import Sequence
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -15,7 +16,7 @@ def get_user(db: Session, user_id: uuid.UUID) -> User | None:
 def get_user_by_email(db: Session, user_email: str) -> User | None:
     return db.scalar(select(User).where(User.email == user_email))
 
-def get_users(db: Session, skip: int = 0, limit: int = 100) -> list[User]:
+def get_users(db: Session, skip: int = 0, limit: int = 100) -> Sequence[User]:
     return (db.scalars(select(User).offset(skip).limit(limit))).all()
 
 def create_user(db: Session, user_in: UserCreate) -> User:
