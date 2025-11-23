@@ -1,11 +1,13 @@
 import uuid
 from typing import Sequence
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.project import Project as ProjectModel
 from app.models.monitor import Monitor as MonitorModel
+from app.models.project import Project as ProjectModel
 from app.schemas.monitor import MonitorCreate
+
 
 def create_monitor(
         db: Session,

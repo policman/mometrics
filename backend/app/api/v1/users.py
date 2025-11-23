@@ -1,13 +1,14 @@
 import uuid
 from sys import prefix
 
-from app.crud.user import get_user_by_email, create_user, get_user, get_users
-from app.db.session import get_db
-from app.schemas.user import UserRead, UserCreate
-from app.models.user import User
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+
 from app.core.deps import get_current_user
+from app.crud.user import create_user, get_user, get_user_by_email, get_users
+from app.db.session import get_db
+from app.models.user import User
+from app.schemas.user import UserCreate, UserRead
 
 router = APIRouter(prefix="/users", tags=["users"])
 

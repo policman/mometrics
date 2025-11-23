@@ -1,11 +1,13 @@
 import uuid
 from typing import Sequence
 
-from app.models import Project as ProjectModel
-from app.schemas.project import ProjectCreate
-from app.models.user import User as UserModel
-from sqlalchemy.orm import Session
 from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models import Project as ProjectModel
+from app.models.user import User as UserModel
+from app.schemas.project import ProjectCreate
+
 
 def create_project(
         db: Session,

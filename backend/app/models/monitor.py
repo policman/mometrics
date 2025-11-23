@@ -1,11 +1,13 @@
+import datetime as dt
+import uuid
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
-from sqlalchemy import ForeignKey, String, Integer, Boolean, DateTime
-import datetime as dt
-import uuid
+
 from app.db.base import Base
-from app.models import Project
+from app.models.project import Project
 
 
 class Monitor(Base):

@@ -1,6 +1,8 @@
-from pydantic import Field, BaseModel
-import uuid
 import datetime as dt
+import uuid
+
+from pydantic import BaseModel, Field
+
 
 class ProjectBase(BaseModel):
     name: str = Field(max_length=100, default="Unnamed")

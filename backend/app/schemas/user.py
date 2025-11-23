@@ -1,7 +1,8 @@
-import uuid
 import datetime as dt
+import uuid
 
 from pydantic import BaseModel, EmailStr
+
 
 class UserBase(BaseModel):
     email: EmailStr

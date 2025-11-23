@@ -1,6 +1,8 @@
-from pydantic import BaseModel, Field, AnyHttpUrl
-import uuid
 import datetime as dt
+import uuid
+
+from pydantic import AnyHttpUrl, BaseModel, Field
+
 
 class MonitorBase(BaseModel):
     name: str = Field(..., max_length=200)

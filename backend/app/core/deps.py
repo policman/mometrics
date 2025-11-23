@@ -1,12 +1,11 @@
-from fastapi.security import OAuth2PasswordBearer
-from app.core.config import get_settings
-
 from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
+from app.core.config import get_settings
 from app.core.security import decode_access_token
 from app.crud.user import get_user
+from app.db.session import get_db
 
 settings = get_settings()
 

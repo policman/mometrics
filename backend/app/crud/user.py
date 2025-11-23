@@ -9,7 +9,6 @@ from app.models.user import User
 from app.schemas.user import UserCreate
 
 
-
 def get_user(db: Session, user_id: uuid.UUID) -> User | None:
     return db.scalar(select(User).where(User.id == user_id))
 

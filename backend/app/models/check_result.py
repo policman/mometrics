@@ -1,9 +1,11 @@
-from sqlalchemy import String, DateTime, Boolean, ForeignKey, Integer
-from sqlalchemy.orm import relationship, Mapped, mapped_column
-from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import UUID
 import datetime as dt
 import uuid
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql import func
+
 from app.db.base import Base
 
 

@@ -1,13 +1,27 @@
 import uuid
-from sqlalchemy.orm import Session
+
+import time
+
+import httpx
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
+from app.crud.monitor import (
+    create_monitor, get_monitor,
+    get_monitors_for_project)
 from app.crud.project import get_project
 from app.db.session import get_db
-from app.schemas.monitor import MonitorRead, MonitorCreate
 from app.models.user import User as UserModel
-from app.crud.monitor import get_monitor, get_monitors_for_project, create_monitor
+from app.schemas.monitor import MonitorCreate, MonitorRead
+from app.schemas.check_result import CheckResultRead
+from app.crud.check_result import (
+    create_check_result,
+    get_recent_results_for_monitor
+)
+from app.models.monitor import Monitor as MonitorModel
+
 
 router = APIRouter(prefix="/monitors", tags=["monitors"])
 
@@ -93,6 +107,112 @@ def get_monitor_by_id_endpoint(
         )
 
     return monitor
+
+@router.post(
+    "/{monitor_id}/check",
+    response_model=CheckResultRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def check_monitor_now_endpoint(
+    monitor_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+) -> CheckResultRead:
+    monitor = get_monitor(db, monitor_id)
+    if not monitor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Monitor not found"
+        )
+
+    project = get_project(db, monitor.project_id)
+    if not project or project.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Monitor not found"
+        )
+
+    start = time.monotonic()
+    status_code: int | None = None
+    error_message: str | None = None
+    is_up = False
+    response_time_ms: int | None = None
+
+    try:
+        with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+            response = client.get(monitor.target_url)
+        elapsed = (time.monotonic() - start) * 1000.0
+        response_time_ms = int(elapsed)
+        status_code = response.status_code
+        is_up = 200 <= response.status_code < 400
+    except httpx.RequestError as exc:
+        elapsed = (time.monotonic() - start) * 1000.0
+        response_time_ms = int(elapsed)
+        error_message = str(exc)
+        is_up = False
+
+    result = create_check_result(
+        db=db,
+        monitor_id=monitor_id,
+        is_up=is_up,
+        status_code=status_code,
+        response_time_ms=response_time_ms,
+        error_message=error_message
+    )
+    return result
+
+
+@router.get(
+    "/{monitor_id}/checks",
+    response_model=list[CheckResultRead]
+)
+def get_recent_checks_for_monitor_endpoint(
+    monitor_id: uuid.UUID,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+) -> list[CheckResultRead]:
+    if limit < 1 or limit > 200:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Limit must be between 1 and 200"
+        )
+
+    monitor = get_monitor(db, monitor_id)
+    if not monitor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Monitor not found"
+        )
+
+    project = get_project(db, monitor.project_id)
+    if not project or project.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Monitor not found"
+        )
+
+    results = get_recent_results_for_monitor(db, monitor.id, limit)
+    return list(results)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

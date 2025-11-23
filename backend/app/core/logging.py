@@ -1,5 +1,7 @@
 import logging
+
 from .config import Settings
+
 
 def setup_logging(settings: Settings) -> None:
     """Basic logging configuration"""
