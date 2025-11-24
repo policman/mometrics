@@ -17,5 +17,5 @@ class UserRead(UserBase):
     created_at: dt.datetime
     updated_at: dt.datetime
 
-    class Config:
+    class ConfigDict:
         from_attributes = True

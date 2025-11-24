@@ -18,5 +18,5 @@ class CheckResultRead(CheckResultBase):
     monitor_id: uuid.UUID
     checked_at: dt.datetime
 
-    class Config:
+    class ConfigDict:
         from_attributes = True
