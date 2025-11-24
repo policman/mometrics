@@ -135,13 +135,13 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
-.envrc
-.venv
-env/
-venv/
-ENV/
-env.bak/
+#.env
+#.envrc
+#.venv
+#env/
+#venv/
+#ENV/
+#env.bak/
 venv.bak/
 
 # Spyder project settings
@@ -208,10 +208,9 @@ __marimo__/
 
 #custom --------
 .env
-.env.*
-
+.env.test
+!.env.example
+!.env.test.example
 node_modules/,
-
 build/.
-
 .idea
