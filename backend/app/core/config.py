@@ -25,8 +25,11 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(default=30)
     # Redis
     redis_url: AnyUrl = "redis://127.0.0.1:6379"
+    # Logging
+    log_level: str = "INFO"
+    log_json: bool = False
 
-    #sqlalchemy url for psycopg2
+    # SQLAlchemy URL for psycopg2
     @property
     def database_url(self) -> str:
         return (

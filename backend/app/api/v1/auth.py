@@ -8,6 +8,9 @@ from app.crud.user import get_user_by_email
 from app.db.session import get_db
 from app.schemas.auth import TokenResponse
 from app.schemas.user import UserRead
+import logging
+
+logger = logging.getLogger("app.api.auth")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -19,13 +22,15 @@ def login(
 ) -> TokenResponse:
     user = get_user_by_email(db, form_data.username)
 
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    if not user or not verify_password(form_data.password, str(user.hashed_password)):
+        logger.warning("Login failed for email=%s", form_data.username)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid email or password"
         )
 
     token = create_access_token({"sub": str(user.id)})
+    logger.info("Login success user_id=%s", user.id)
     return TokenResponse(access_token=token)
 
 

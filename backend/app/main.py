@@ -1,3 +1,6 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.api.v1.auth import router as auth_router
@@ -10,12 +13,25 @@ from app.core.logging import setup_logging
 
 
 def create_app() -> FastAPI:
+    setup_logging()
+
     settings = get_settings()
-    setup_logging(settings)
+    logger = logging.getLogger("app.main")
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        # startup ----
+        logger.info("Starting %s in %s", settings.app_name, settings.environment)
+
+        yield
+
+        # shutdown ---
+        logger.info("Shutting down %s", settings.app_name)
 
     app = FastAPI(
         title=settings.app_name,
-        debug=settings.debug
+        debug=settings.debug,
+        lifespan=lifespan
     )
 
     app.include_router(health_router, prefix=settings.api_v1_prefix)
@@ -23,7 +39,9 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix=settings.api_v1_prefix)
     app.include_router(projects_router, prefix=settings.api_v1_prefix)
     app.include_router(monitor_router, prefix=settings.api_v1_prefix)
+
     return app
+
 
 
 app = create_app()
