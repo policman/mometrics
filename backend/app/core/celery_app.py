@@ -17,11 +17,12 @@ celery_app.conf.update(
     enable_utc=True,
 )
 
+celery_app.autodiscover_tasks(["app.tasks"])
+
 celery_app.conf.beat_schedule = {
-    "run-every-minute": {
-        "task": "app.tasks.monitors.run_all_monitors",
-        "schedule": 60.0,
+    "schedule-due-monitors-every-30s": {
+        "task": "app.tasks.monitors.schedule_due_monitors",
+        "schedule": 30.0,
     }
 }
 
-celery_app.autodiscover_tasks(["app.tasks"])

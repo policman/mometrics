@@ -1,6 +1,5 @@
-from datetime import UTC
-from datetime import datetime as dt
-from datetime import timedelta
+from datetime import datetime as dt, UTC, timedelta
+
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext

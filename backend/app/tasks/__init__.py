@@ -1,1 +1,1 @@
-from .monitors import run_monitor_check  # noqa: F401
+from .monitors import run_monitor_check, schedule_due_monitors  # noqa: F401
