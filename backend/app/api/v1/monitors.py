@@ -21,9 +21,11 @@ from app.crud.check_result import (
     get_recent_results_for_monitor
 )
 from app.models.monitor import Monitor as MonitorModel
+from app.services.monitoring import check_monitor_once
 
 
 router = APIRouter(prefix="/monitors", tags=["monitors"])
+
 
 @router.post(
     "/projects/{project_id}",
@@ -108,6 +110,7 @@ def get_monitor_by_id_endpoint(
 
     return monitor
 
+
 @router.post(
     "/{monitor_id}/check",
     response_model=CheckResultRead,
@@ -132,33 +135,8 @@ def check_monitor_now_endpoint(
             detail="Monitor not found"
         )
 
-    start = time.monotonic()
-    status_code: int | None = None
-    error_message: str | None = None
-    is_up = False
-    response_time_ms: int | None = None
+    result = check_monitor_once(db, monitor)
 
-    try:
-        with httpx.Client(timeout=10.0, follow_redirects=True) as client:
-            response = client.get(monitor.target_url)
-        elapsed = (time.monotonic() - start) * 1000.0
-        response_time_ms = int(elapsed)
-        status_code = response.status_code
-        is_up = 200 <= response.status_code < 400
-    except httpx.RequestError as exc:
-        elapsed = (time.monotonic() - start) * 1000.0
-        response_time_ms = int(elapsed)
-        error_message = str(exc)
-        is_up = False
-
-    result = create_check_result(
-        db=db,
-        monitor_id=monitor_id,
-        is_up=is_up,
-        status_code=status_code,
-        response_time_ms=response_time_ms,
-        error_message=error_message
-    )
     return result
 
 

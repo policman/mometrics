@@ -3,7 +3,7 @@ ENV = os.getenv("ENVIRONMENT", "dev")
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, AnyUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     secret_key: str = Field(default="dev_key")
     jwt_algorithm: str = Field(default="HS256")
     access_token_expire_minutes: int = Field(default=30)
+    # Redis
+    redis_url: AnyUrl = "redis://127.0.0.1:6379"
 
     #sqlalchemy url for psycopg2
     @property

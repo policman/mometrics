@@ -26,6 +26,7 @@ def create_monitor(
     db.refresh(monitor)
     return monitor
 
+
 def get_monitor(
         db: Session,
         monitor_id: uuid.UUID,
@@ -39,6 +40,7 @@ def get_monitor(
             )
         )
     )
+
 
 def get_monitors_for_project(
         db: Session,
