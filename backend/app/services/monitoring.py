@@ -61,7 +61,8 @@ def check_monitor_once(db: Session, monitor: MonitorModel):
     - save result in bd
     - return created CheckResult
     """
-    logging.info("Running check for monitor id=%s url=%s", monitor.id, monitor.target_url)
+    logger.info("Running check for monitor id=%s url=%s",
+                 monitor.id, monitor.target_url)
     result_data = perform_http_check(monitor.target_url)
     result = create_check_result(
         db=db,

@@ -1,10 +1,11 @@
 import uuid
 
 import time
+from datetime import datetime
 
 import httpx
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
@@ -14,7 +15,7 @@ from app.crud.monitor import (
 from app.crud.project import get_project
 from app.db.session import get_db
 from app.models.user import User as UserModel
-from app.schemas.monitor import MonitorCreate, MonitorRead
+from app.schemas.monitor import MonitorCreate, MonitorRead, MonitorStats
 from app.schemas.check_result import CheckResultRead
 from app.crud.check_result import (
     create_check_result,
@@ -22,7 +23,7 @@ from app.crud.check_result import (
 )
 from app.models.monitor import Monitor as MonitorModel
 from app.services.monitoring import check_monitor_once
-
+from app.services.stats import compute_monitor_stats
 
 router = APIRouter(prefix="/monitors", tags=["monitors"])
 
@@ -174,10 +175,41 @@ def get_recent_checks_for_monitor_endpoint(
     return list(results)
 
 
+@router.get("/{monitor_id}/stats", response_model=MonitorStats)
+def get_monitor_stats_endpoint(
+    monitor_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+    from_ts: datetime | None = Query(None, description="Start of interval (UTC)"),
+    to_ts: datetime | None = Query(None, description="Start of interval (UTC)"),
+) -> MonitorStats:
+    """
+    Stats of monitor in period.
+    if from_ts / to_ts is None - period = last 24 hours
+    """
 
+    monitor = get_monitor(db, monitor_id)
+    if not monitor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Monitor not found",
+        )
 
+    project = get_project(db, monitor.project_id)
+    if not project or project.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Monitor not found",
+        )
 
+    stats = compute_monitor_stats(
+        db,
+        monitor_id,
+        from_ts=from_ts,
+        to_ts=to_ts,
+    )
 
+    return stats
 
 
 

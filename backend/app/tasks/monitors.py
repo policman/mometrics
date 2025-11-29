@@ -39,7 +39,8 @@ def schedule_due_monitors() -> None:
         now = dt.now(UTC)
 
         monitors = db.scalars(
-            select(Monitor).where(Monitor.is_active.is_(True))
+            select(Monitor)
+            .where(Monitor.is_active.is_(True))
         ).all()
 
         for monitor in monitors:

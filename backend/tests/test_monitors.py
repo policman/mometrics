@@ -1,4 +1,9 @@
 from fastapi.testclient import TestClient
+from datetime import datetime, timedelta, timezone
+from sqlalchemy import select
+from app.models.check_result import CheckResult as CheckResultModel
+from app.models.monitor import Monitor as MonitorModel
+import pytest
 
 def register_user_and_login(client: TestClient, email: str, password: str) -> str:
     resp = client.post(
@@ -159,6 +164,98 @@ def test_cannot_access_other_users_monitor(client: TestClient):
         headers=auth_headers(token_y)
     )
     assert resp.status_code in (403, 404)
+
+
+def test_monitor_stats_basic(client: TestClient, db_session):
+    # create user and project
+    token = register_user_and_login(client, "stats@example.com", "password123")
+    project = create_project(client, token)
+    project_id = project["id"]
+
+    # create monitor via api
+    resp = client.post(
+        f"/api/v1/monitors/projects/{project_id}",
+        json={
+            "name": "Stats monitor",
+            "target_url": "https://example.com/",
+            "check_interval_sec": 60,
+            "is_active": True,
+        },
+        headers=auth_headers(token)
+    )
+    assert resp.status_code == 201
+    monitor = resp.json()
+    monitor_id = monitor["id"]
+
+    # manually add a few CheckResult in test DB
+    now = datetime.now(timezone.utc)
+
+    # session came as a fixture
+    db = db_session
+
+    # find monitor like a model
+    m = (db.scalars(
+        select(MonitorModel)
+        .where(MonitorModel.id == monitor_id)
+    )).first()
+    assert m is not None
+
+    results = [
+        CheckResultModel(
+            monitor_id=m.id,
+            is_up=True,
+            status_code=200,
+            response_time_ms=100,
+            checked_at=now - timedelta(minutes=10),
+        ),
+        CheckResultModel(
+            monitor_id=m.id,
+            is_up=False,
+            status_code=500,
+            response_time_ms=300,
+            checked_at=now - timedelta(minutes=5),
+        ),
+        CheckResultModel(
+            monitor_id=m.id,
+            is_up=True,
+            status_code=200,
+            response_time_ms=150,
+            checked_at=now - timedelta(minutes=1),
+        ),
+    ]
+
+    db.add_all(results)
+    db.commit()
+
+    # read stats via API
+    resp = client.get(
+        f"/api/v1/monitors/{monitor_id}/stats",
+        headers=auth_headers(token),
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["total_checks"] == 3
+    assert data["up_checks"] == 2
+    assert data["down_checks"] == 1
+    assert data["uptime_percent"] == pytest.approx(66.6, rel=0.05)
+    assert data["last_status_up"] is True
+    assert data["last_status_code"] == 200
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
