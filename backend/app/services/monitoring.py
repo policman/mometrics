@@ -3,6 +3,7 @@ import httpx
 from sqlalchemy.orm import Session
 import logging
 
+from app.core.redis_client import get_redis_client
 from app.models.monitor import Monitor as MonitorModel
 from app.crud.check_result import create_check_result
 
@@ -61,9 +62,13 @@ def check_monitor_once(db: Session, monitor: MonitorModel):
     - save result in bd
     - return created CheckResult
     """
-    logger.info("Running check for monitor id=%s url=%s",
-                 monitor.id, monitor.target_url)
+    logger.info(
+        "Running check for monitor id=%s url=%s",
+        monitor.id,
+        monitor.target_url
+    )
     result_data = perform_http_check(monitor.target_url)
+
     result = create_check_result(
         db=db,
         monitor_id=monitor.id,
@@ -72,22 +77,29 @@ def check_monitor_once(db: Session, monitor: MonitorModel):
         response_time_ms=result_data["response_time_ms"],
         error_message=result_data["error_message"]
     )
+
+    # cache invalidation stats for 24 hours
+    redis_client = get_redis_client()
+    cache_key = f"monitor:{monitor.id}:stats:last_24h"
+    try:
+        redis_client.delete(cache_key)
+        logger.info("Invalidated stats cache for monitor id=%s", monitor.id)
+    except Exception as exc:
+        logger.warning(
+            "Failed to invalidate stats cache: monitor_id=%s error=%s",
+            monitor.id,
+            exc
+        )
+
     logger.info(
         "Stored check_result id=%s monitor_id=%s is_up=%s status=%s",
-        result.id, result.monitor_id, result.is_up, result.status_code,
+        result.id,
+        result.monitor_id,
+        result.is_up,
+        result.status_code,
     )
 
     return result
-
-
-
-
-
-
-
-
-
-
 
 
 

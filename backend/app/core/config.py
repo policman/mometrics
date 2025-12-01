@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(default=30)
     # Redis
     redis_url: AnyUrl = "redis://127.0.0.1:6379"
+    cache_ttl_monitor_stats_sec: int = 60
     # Logging
     log_level: str = "INFO"
     log_json: bool = False
