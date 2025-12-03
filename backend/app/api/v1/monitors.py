@@ -11,15 +11,24 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user
 from app.crud.monitor import (
     create_monitor, get_monitor,
-    get_monitors_for_project)
+    get_monitors_for_project,
+    get_monitors_for_owner_by_ids,
+    set_monitors_status_by_ids
+)
 from app.crud.project import get_project
 from app.db.session import get_db
 from app.models.user import User as UserModel
-from app.schemas.monitor import MonitorCreate, MonitorRead, MonitorStats
+from app.schemas.monitor import (
+    MonitorCreate,
+    MonitorRead,
+    MonitorStats,
+    MonitorIdList
+)
 from app.schemas.check_result import CheckResultRead
 from app.crud.check_result import (
     create_check_result,
-    get_recent_results_for_monitor
+    get_recent_results_for_monitor,
+    get_checks_in_period
 )
 from app.models.monitor import Monitor as MonitorModel
 from app.services.monitoring import check_monitor_once
@@ -151,7 +160,7 @@ def get_recent_checks_for_monitor_endpoint(
     db: Session = Depends(get_db),
     current_user: UserModel = Depends(get_current_user)
 ) -> list[CheckResultRead]:
-    if limit < 1 or limit > 200:
+    if limit < 1 or limit > 1000:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Limit must be between 1 and 200"
@@ -212,8 +221,65 @@ def get_monitor_stats_endpoint(
     return stats
 
 
+@router.get(
+    "/{monitor_id}/checks-history",
+    response_model=list[CheckResultRead]
+)
+def get_checks_history_endpoint(
+    monitor_id: uuid.UUID,
+    from_ts: datetime,
+    to_ts: datetime,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+) -> list[CheckResultRead]:
+    monitor = get_monitor(db, monitor_id)
+    if not monitor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Monitor not found"
+        )
+
+    project = get_project(db, monitor.project_id)
+    if not project and current_user != project.owner_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found"
+        )
+    return list(get_checks_in_period(db, monitor_id, from_ts, to_ts))
 
 
+@router.put(
+    "/bulk-set-status",
+    response_model=int
+)
+def bulk_deactivate_monitors_endpoint(
+    monitors: MonitorIdList,
+    is_active: bool,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+) -> int:
+    monitors_ids = monitors.ids
+    if not monitors_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Monitor list cannot be empty"
+        )
+
+    monitors_to_set_status = get_monitors_for_owner_by_ids(
+        db,
+        monitors_ids,
+        current_user.id
+    )
+
+    if len(monitors_to_set_status) != len(monitors_ids):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owner can deactivate monitors"
+        )
+
+    checked_ids_to_off = [monitor.id for monitor in monitors_to_set_status]
+
+    return set_monitors_status_by_ids(db, checked_ids_to_off, is_active)
 
 
 

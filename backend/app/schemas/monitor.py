@@ -7,7 +7,7 @@ from pydantic import AnyHttpUrl, BaseModel, Field
 class MonitorBase(BaseModel):
     name: str = Field(..., max_length=200)
     target_url: AnyHttpUrl
-    check_interval_sec: int = Field(default=60, ge=10, le=24*60*60)
+    check_interval_sec: int = Field(default=60, ge=15, le=24*60*60)
     is_active: bool = True
 
 
@@ -42,3 +42,6 @@ class MonitorStats(BaseModel):
     last_status_up: bool | None = None
     last_status_code: int | None = None
     last_check_at: datetime | None = None
+
+class MonitorIdList(BaseModel):
+    ids: list[uuid.UUID]

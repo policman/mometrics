@@ -24,9 +24,9 @@ celery_app.conf.update(
 celery_app.autodiscover_tasks(["app.tasks"])
 
 celery_app.conf.beat_schedule = {
-    "schedule-due-monitors-every-30s": {
+    "schedule-due-monitors-every-15s": {
         "task": "app.tasks.monitors.schedule_due_monitors",
-        "schedule": 30.0,
+        "schedule": 15.0,
     }
 }
 

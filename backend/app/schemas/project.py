@@ -20,3 +20,9 @@ class ProjectRead(ProjectBase):
 
     class ConfigDict:
         from_attributes = True
+
+class ProjectIdList(BaseModel):
+    ids: list[uuid.UUID]
+
+class ProjectEdit(ProjectBase):
+    pass

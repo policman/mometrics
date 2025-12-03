@@ -1,6 +1,6 @@
 import uuid
 from typing import Sequence
-
+from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -39,3 +39,29 @@ def get_recent_results_for_monitor(
             .limit(limit)
         )
     ).all()
+
+
+def get_checks_in_period(
+    db: Session,
+    monitor_id: uuid.UUID,
+    from_ts: datetime,
+    to_ts: datetime,
+) -> Sequence[CheckResultModel]:
+    return db.scalars(
+        select(CheckResultModel)
+        .where(
+            CheckResultModel.monitor_id == monitor_id,
+            CheckResultModel.checked_at >= from_ts,
+            CheckResultModel.checked_at <= to_ts
+        )
+        .order_by(CheckResultModel.checked_at.asc())
+    ).all()
+
+
+
+
+
+
+
+
+

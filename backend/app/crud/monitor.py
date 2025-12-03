@@ -1,12 +1,12 @@
 import uuid
-from typing import Sequence
-
-from sqlalchemy import select
+from typing import Sequence, cast
+from datetime import datetime, timezone
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
-
+from sqlalchemy.engine import CursorResult
 from app.models.monitor import Monitor as MonitorModel
 from app.models.project import Project as ProjectModel
-from app.schemas.monitor import MonitorCreate
+from app.schemas.monitor import MonitorCreate, MonitorIdList
 
 
 def create_monitor(
@@ -34,10 +34,7 @@ def get_monitor(
     return (
         db.scalar(
             select(MonitorModel)
-            .where(
-                MonitorModel.id == monitor_id,
-                MonitorModel.is_active.is_(True)
-            )
+            .where(MonitorModel.id == monitor_id)
         )
     )
 
@@ -51,11 +48,54 @@ def get_monitors_for_project(
     return (
         db.scalars(
             select(MonitorModel)
-            .where(
-                MonitorModel.project_id == project_id,
-                MonitorModel.is_active.is_(True)
-            )
+            .where(MonitorModel.project_id == project_id)
             .offset(skip)
             .limit(limit)
         ).all()
     )
+
+def get_monitors_for_owner_by_ids(
+        db: Session,
+        monitor_ids: list[uuid.UUID],
+        user_id: uuid.UUID
+):
+    result = db.scalars(
+        select(MonitorModel)
+        .join(ProjectModel, MonitorModel.project_id == ProjectModel.id)
+        .where(
+            MonitorModel.id.in_(monitor_ids),
+            ProjectModel.owner_id == user_id
+        )
+    ).all()
+    return result
+
+def set_monitors_status_by_ids(
+        db: Session,
+        monitor_ids: list[uuid.UUID],
+        is_active: bool
+):
+    result = db.execute(
+        update(MonitorModel)
+        .where(
+            MonitorModel.id.in_(monitor_ids),
+            MonitorModel.is_active.is_(not is_active)
+        )
+        .values(
+            is_active=is_active,
+            updated_at=datetime.now(timezone.utc)
+        )
+    )
+    rows_affected = cast(CursorResult, result).rowcount
+
+    if is_active:
+        _ = db.execute(
+            update(ProjectModel)
+            .where(
+                ProjectModel.id == MonitorModel.project_id,
+                ProjectModel.is_active.is_(False)
+            )
+            .values(is_active=True)
+        )
+
+    db.commit()
+    return rows_affected
