@@ -1,35 +1,29 @@
 import time
 import httpx
-from sqlalchemy.orm import Session
 import logging
-
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.redis_client import get_redis_client
-from app.models.monitor import Monitor as MonitorModel
 from app.crud.check_result import create_check_result
+from app.models.monitor import Monitor as MonitorModel
 
 logger = logging.getLogger("app.monitoring")
 
-def perform_http_check(target_url: str, timeout: float = 10.0) -> dict:
-    """
-    do http-request to target_url and return dict with results:
-    is_up, status_code, response_time_ms, error_message
-    """
-    logger.info("Checking URL %s", target_url)
-
+async def perform_http_check(target_url: str, timeout: float = 10.0) -> dict:
     start = time.monotonic()
-    status_code: int | None = None
-    error_message: str | None = None
+    status_code = None
+    error_message = None
     is_up = False
-    response_time_ms: int | None = None
+    response_time_ms = None
 
     try:
-        with httpx.Client(timeout=timeout, follow_redirects=True) as client:
-            response = client.get(target_url)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            response = await client.get(target_url)
 
         elapsed_ms = int((time.monotonic() - start) * 1000.0)
         response_time_ms = elapsed_ms
         status_code = response.status_code
         is_up = 200 <= response.status_code < 400
+
     except httpx.RequestError as exc:
         elapsed_ms = int((time.monotonic() - start) * 1000.0)
         response_time_ms = elapsed_ms
@@ -43,7 +37,7 @@ def perform_http_check(target_url: str, timeout: float = 10.0) -> dict:
         )
     else:
         logger.info(
-            "Monitor check OK: urs=%s info=%s response_time_ms=%s",
+            "Monitor check OK: url=%s status=%s response_time_ms=%s",
             target_url, status_code, response_time_ms,
         )
 
@@ -54,22 +48,10 @@ def perform_http_check(target_url: str, timeout: float = 10.0) -> dict:
         "error_message": error_message,
     }
 
+async def check_monitor_once(db: AsyncSession, monitor: MonitorModel):
+    result_data = await perform_http_check(monitor.target_url)
 
-def check_monitor_once(db: Session, monitor: MonitorModel):
-    """
-    Execute one monitor check:
-    - http-request
-    - save result in bd
-    - return created CheckResult
-    """
-    logger.info(
-        "Running check for monitor id=%s url=%s",
-        monitor.id,
-        monitor.target_url
-    )
-    result_data = perform_http_check(monitor.target_url)
-
-    result = create_check_result(
+    result = await create_check_result(
         db=db,
         monitor_id=monitor.id,
         is_up=result_data["is_up"],
@@ -78,30 +60,11 @@ def check_monitor_once(db: Session, monitor: MonitorModel):
         error_message=result_data["error_message"]
     )
 
-    # cache invalidation stats for 24 hours
     redis_client = get_redis_client()
     cache_key = f"monitor:{monitor.id}:stats:last_24h"
     try:
-        redis_client.delete(cache_key)
-        logger.info("Invalidated stats cache for monitor id=%s", monitor.id)
+        await redis_client.delete(cache_key)
     except Exception as exc:
-        logger.warning(
-            "Failed to invalidate stats cache: monitor_id=%s error=%s",
-            monitor.id,
-            exc
-        )
-
-    logger.info(
-        "Stored check_result id=%s monitor_id=%s is_up=%s status=%s",
-        result.id,
-        result.monitor_id,
-        result.is_up,
-        result.status_code,
-    )
+        logger.warning(f"Failed to invalidate stats cache: {exc}")
 
     return result
-
-
-
-
-

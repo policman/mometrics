@@ -1,66 +1,73 @@
 import uuid
+import asyncio
+from datetime import datetime, timezone
 from sqlalchemy import select
+from celery.utils.log import get_task_logger
+
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy.pool import NullPool
+from app.core.config import get_settings
+
 from app.core.celery_app import celery_app
-from app.db.session import SessionLocal
 from app.crud.monitor import get_monitor
 from app.models import Monitor, CheckResult
 from app.services.monitoring import check_monitor_once
-from datetime import datetime as dt, UTC
-from celery.utils.log import get_task_logger
 
 logger = get_task_logger(__name__)
 
-@celery_app.task
-def run_monitor_check(monitor_id: str) -> None:
-    """
-    Celery-task: check monitor and save
-    """
-    logger.info("Celery: run_monitor_check monitor_id=%s", monitor_id)
+settings = get_settings()
+
+
+celery_engine = create_async_engine(
+    str(settings.database_url),
+    poolclass=NullPool,
+)
+
+CelerySessionLocal = async_sessionmaker(bind=celery_engine, expire_on_commit=False)
+
+
+
+async def _run_monitor_check_logic(monitor_id: str):
     monitor_uuid = uuid.UUID(monitor_id)
-
-    with SessionLocal() as db:
-        monitor = get_monitor(db, monitor_uuid)
+    async with CelerySessionLocal() as db:
+        monitor = await get_monitor(db, monitor_uuid)
         if not monitor:
-            logger.warning("Celery: monitor not found id=%s", monitor_id)
             return
+        await check_monitor_once(db, monitor)
 
-        check_monitor_once(db, monitor)
-
-
-@celery_app.task
-def schedule_due_monitors() -> None:
-    """
-    dispatcher: find all monitors, which need to check,
-    and give them tasks run_monitor_check
-    """
-    logger.info("Celery: schedule_due_monitors started")
-
-    with SessionLocal() as db:
-        now = dt.now(UTC)
-
-        monitors = db.scalars(
-            select(Monitor)
-            .where(Monitor.is_active.is_(True))
-        ).all()
+async def _schedule_due_monitors_logic():
+    async with CelerySessionLocal() as db:
+        now = datetime.now(timezone.utc)
+        monitors = (await db.scalars(
+            select(Monitor).where(Monitor.is_active.is_(True))
+        )).all()
 
         for monitor in monitors:
-            last_result = db.scalars(
+            last_result = await db.scalar(
                 select(CheckResult)
                 .where(CheckResult.monitor_id == monitor.id)
                 .order_by(CheckResult.checked_at.desc())
                 .limit(1)
-            ).first()
+            )
 
+            due = False
             if last_result is None:
                 due = True
             else:
-                elapsed_sec = (now - last_result.checked_at).total_seconds()
+                last_check_time = last_result.checked_at
+                if last_check_time.tzinfo is None:
+                    last_check_time = last_check_time.replace(tzinfo=timezone.utc)
+
+                elapsed_sec = (now - last_check_time).total_seconds()
                 due = elapsed_sec >= monitor.check_interval_sec
 
             if due:
-                logger.info(
-                    "Celery: scheduling monitor check id=%s url=%s",
-                    monitor.id,
-                    monitor.target_url,
-                )
-                run_monitor_check(str(monitor.id))
+                run_monitor_check.delay(str(monitor.id))
+
+@celery_app.task
+def run_monitor_check(monitor_id: str) -> None:
+    asyncio.run(_run_monitor_check_logic(monitor_id))
+
+@celery_app.task
+def schedule_due_monitors() -> None:
+    asyncio.run(_schedule_due_monitors_logic())

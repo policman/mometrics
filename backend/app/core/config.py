@@ -30,12 +30,20 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_json: bool = False
 
-    # SQLAlchemy URL for psycopg2
+    # SQLAlchemy URL with asyncpg for fastapi
     @property
     def database_url(self) -> str:
         return (
-            f"postgresql+psycopg2://{self.db_user}:{self.db_password}"
+            f"postgresql+asyncpg://{self.db_user}:{self.db_password}"
             f"@{self.db_host}:{self.db_port}/{self.db_name}"
+        )
+
+    # SQLAlchemy URL for alembic (sync)
+    @property
+    def database_url_sync(self):
+        return (
+            f"postgresql://{self.db_user}:{self.db_password}"
+            f"@{self.db_host}:{self.db_port}/{self.db_user}"
         )
 
     model_config = SettingsConfigDict(

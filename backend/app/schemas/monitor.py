@@ -45,3 +45,10 @@ class MonitorStats(BaseModel):
 
 class MonitorIdList(BaseModel):
     ids: list[uuid.UUID]
+
+
+class MonitorEdit(BaseModel):
+    name: str | None = Field(default=None, max_length=200)
+    target_url: AnyHttpUrl | None = None
+    check_interval_sec: int | None = Field(default=None, ge=15)
+    is_active: bool | None = None

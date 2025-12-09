@@ -1,31 +1,21 @@
-from typing import Generator
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from collections.abc import AsyncGenerator
 
 from app.core.config import get_settings
 
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine
+)
+
 settings = get_settings()
 
-engine = create_engine(
-    settings.database_url,
-    pool_pre_ping=True,
+async_engine = create_async_engine(settings.database_url, echo=True)
+
+async_session_maker = async_sessionmaker(
+    async_engine, expire_on_commit=False, class_=AsyncSession
 )
 
-SessionLocal = sessionmaker(
-    bind=engine,
-    autoflush=False,
-    autocommit=False,
-    expire_on_commit=False,
-)
-
-
-def get_db() -> Generator[Session, None, None]:
-    """
-    Dependency for FastAPI: give a bd session and guarantees its closure
-    """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
+    async with async_session_maker() as session:
+        yield session

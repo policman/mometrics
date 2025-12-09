@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
+
 class User(Base):
     __tablename__ = "users"
 
@@ -52,3 +53,7 @@ class User(Base):
         back_populates="owner"
     )
 
+    refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )

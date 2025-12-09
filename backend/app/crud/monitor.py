@@ -2,15 +2,15 @@ import uuid
 from typing import Sequence, cast
 from datetime import datetime, timezone
 from sqlalchemy import select, update
-from sqlalchemy.orm import Session
 from sqlalchemy.engine import CursorResult
 from app.models.monitor import Monitor as MonitorModel
 from app.models.project import Project as ProjectModel
-from app.schemas.monitor import MonitorCreate, MonitorIdList
+from app.schemas.monitor import MonitorCreate, MonitorEdit
+from sqlalchemy.ext.asyncio.session import AsyncSession
 
 
-def create_monitor(
-        db: Session,
+async def create_monitor(
+        db: AsyncSession,
         project: ProjectModel,
         monitor_in: MonitorCreate,
 ) -> MonitorModel:
@@ -22,59 +22,60 @@ def create_monitor(
         is_active=monitor_in.is_active
     )
     db.add(monitor)
-    db.commit()
-    db.refresh(monitor)
+    await db.commit()
+    await db.refresh(monitor)
     return monitor
 
 
-def get_monitor(
-        db: Session,
+async def get_monitor(
+        db: AsyncSession,
         monitor_id: uuid.UUID,
 ) -> MonitorModel | None:
     return (
-        db.scalar(
+        await db.scalar(
             select(MonitorModel)
             .where(MonitorModel.id == monitor_id)
         )
     )
 
 
-def get_monitors_for_project(
-        db: Session,
+async def get_monitors_for_project(
+        db: AsyncSession,
         project_id: uuid.UUID,
         skip: int = 0,
         limit: int = 100,
 ) -> Sequence[MonitorModel]:
     return (
-        db.scalars(
+        await db.scalars(
             select(MonitorModel)
             .where(MonitorModel.project_id == project_id)
             .offset(skip)
             .limit(limit)
-        ).all()
-    )
+        )
+    ).all()
 
-def get_monitors_for_owner_by_ids(
-        db: Session,
+
+async def get_monitors_for_owner_by_ids(
+        db: AsyncSession,
         monitor_ids: list[uuid.UUID],
         user_id: uuid.UUID
-):
-    result = db.scalars(
+) -> Sequence[MonitorModel]:
+    return (await db.scalars(
         select(MonitorModel)
         .join(ProjectModel, MonitorModel.project_id == ProjectModel.id)
         .where(
             MonitorModel.id.in_(monitor_ids),
             ProjectModel.owner_id == user_id
         )
-    ).all()
-    return result
+    )).all()
 
-def set_monitors_status_by_ids(
-        db: Session,
+
+async def set_monitors_status_by_ids(
+        db: AsyncSession,
         monitor_ids: list[uuid.UUID],
         is_active: bool
 ):
-    result = db.execute(
+    result = await db.execute(
         update(MonitorModel)
         .where(
             MonitorModel.id.in_(monitor_ids),
@@ -88,7 +89,7 @@ def set_monitors_status_by_ids(
     rows_affected = cast(CursorResult, result).rowcount
 
     if is_active:
-        _ = db.execute(
+        _ = await db.execute(
             update(ProjectModel)
             .where(
                 ProjectModel.id == MonitorModel.project_id,
@@ -97,5 +98,29 @@ def set_monitors_status_by_ids(
             .values(is_active=True)
         )
 
-    db.commit()
+    await db.commit()
     return rows_affected
+
+
+async def update_monitor(
+    db: AsyncSession,
+    monitor_db: MonitorModel,
+    monitor_in: MonitorEdit,
+) -> MonitorModel:
+    update_data = monitor_in.model_dump(exclude_unset=True)
+
+    if not update_data:
+        return monitor_db
+
+    for field, value in update_data.items():
+        if field == "target_url" and value is not None:
+            value = str(value)
+
+        setattr(monitor_db, field, value)
+
+    monitor_db.updated_at = datetime.now(timezone.utc)
+
+    db.add(monitor_db)
+    await db.commit()
+    await db.refresh(monitor_db)
+    return monitor_db

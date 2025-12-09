@@ -48,7 +48,7 @@ def run_migrations_offline() -> None:
 
     """
     settings = get_settings()
-    database_url = settings.database_url
+    database_url = settings.database_url_sync
 
     url = database_url
     context.configure(
@@ -70,7 +70,7 @@ def run_migrations_online() -> None:
 
     """
     settings = get_settings()
-    database_url = settings.database_url
+    database_url = settings.database_url_sync
 
     configuration = config.get_section(config.config_ini_section)
     if configuration is None:

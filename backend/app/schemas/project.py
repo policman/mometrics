@@ -1,4 +1,4 @@
-import datetime as dt
+from datetime import datetime
 import uuid
 
 from pydantic import BaseModel, Field
@@ -15,8 +15,8 @@ class ProjectCreate(ProjectBase):
 class ProjectRead(ProjectBase):
     id: uuid.UUID
     owner_id: uuid.UUID | None
-    created_at: dt.datetime
-    updated_at: dt.datetime
+    created_at: datetime
+    updated_at: datetime
 
     class ConfigDict:
         from_attributes = True
@@ -24,5 +24,7 @@ class ProjectRead(ProjectBase):
 class ProjectIdList(BaseModel):
     ids: list[uuid.UUID]
 
-class ProjectEdit(ProjectBase):
-    pass
+class ProjectEdit(BaseModel):
+    name: str = Field(max_length=100, default=None)
+    description: str | None = None
+    is_active: bool = True

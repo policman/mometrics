@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 import json
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.redis_client import get_redis_client
@@ -10,8 +10,8 @@ from app.models import CheckResult
 from app.schemas.monitor import MonitorStats
 
 
-def compute_monitor_stats(
-    db: Session,
+async def compute_monitor_stats(
+    db: AsyncSession,
     monitor_id,
     *,
     from_ts: datetime | None = None,
@@ -22,7 +22,7 @@ def compute_monitor_stats(
     if from_ts / to_ts is None - period = last 24 hours
     """
     settings = get_settings()
-    redis_client = get_redis_client()
+    redis_client = await get_redis_client()
 
     # --- set range if parameters is None
     now = datetime.now(timezone.utc)
@@ -38,7 +38,7 @@ def compute_monitor_stats(
 
     # 1 - try to get of cache
     if use_cache:
-        cached = redis_client.get(cache_key)
+        cached = await redis_client.get(cache_key)
         if cached:
             data = json.loads(cached)
             return MonitorStats(**data)
@@ -54,7 +54,7 @@ def compute_monitor_stats(
         .order_by(CheckResult.checked_at.desc())
     )
 
-    results = db.scalars(base_q).all()
+    results = (await db.scalars(base_q)).all()
 
     total_checks = len(results)
     up_checks = sum(1 for r in results if r.is_up)
@@ -94,7 +94,7 @@ def compute_monitor_stats(
 
     # 3 - put in cache (if period is default)
     if use_cache:
-        redis_client.setex(
+        await redis_client.setex(
             cache_key,
             settings.cache_ttl_monitor_stats_sec,
             stats.model_dump_json(),

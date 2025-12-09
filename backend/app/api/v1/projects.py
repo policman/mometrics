@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from app.core.deps import get_current_user
 from app.crud.project import (
@@ -12,51 +12,50 @@ from app.crud.project import (
     set_projects_status_by_id,
     update_project
 )
-from app.db.session import get_db
+from app.db.session import get_async_db
 from app.models.user import User as UserModel
 from app.models.project import Project as ProjectModel
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectIdList, ProjectEdit
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
+
 @router.post(
     "",
     response_model=ProjectRead,
     status_code=status.HTTP_201_CREATED
 )
-def create_project_endpoint(
+async def create_project_endpoint(
     project_in: ProjectCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserModel = Depends(get_current_user),
 ) -> ProjectRead:
-    project = create_project(db, current_user, project_in)
-    return project
+    return await create_project(db, current_user, project_in)
 
 
 @router.get(
     "",
     response_model=list[ProjectRead],
 )
-def get_projects_endpoint(
+async def get_projects_endpoint(
         skip: int = 0,
         limit: int = 100,
-        db: Session = Depends(get_db),
+        db: AsyncSession = Depends(get_async_db),
         current_user: UserModel = Depends(get_current_user)
 ) -> list[ProjectRead]:
-    projects = get_projects_for_user(db, current_user.id, skip, limit)
-    return list(projects)
+    return list(await get_projects_for_user(db, current_user.id, skip, limit))
 
 
 @router.get(
     "/{project_id}",
     response_model=ProjectRead
 )
-def get_project_by_id_endpoint(
+async def get_project_by_id_endpoint(
     project_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserModel = Depends(get_current_user)
 ) -> ProjectRead:
-    project = get_project(db, project_id)
+    project = await get_project(db, project_id)
 
     if not project:
         raise HTTPException(
@@ -77,10 +76,10 @@ def get_project_by_id_endpoint(
     "/bulk-set-status",
     response_model=int
 )
-def set_projects_status_by_id_endpoint(
+async def set_projects_status_by_id_endpoint(
     projects: ProjectIdList,
     is_active: bool,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserModel = Depends(get_current_user)
 ) -> int:
     if not projects:
@@ -89,9 +88,7 @@ def set_projects_status_by_id_endpoint(
             detail="Projects list cannot be empty"
         )
 
-    projects_to_set = get_projects_for_owner_by_id(db, projects.ids, current_user.id)
-
-
+    projects_to_set = await get_projects_for_owner_by_id(db, projects.ids, current_user.id)
 
     if len(projects.ids) != len(projects_to_set):
         raise HTTPException(
@@ -101,19 +98,20 @@ def set_projects_status_by_id_endpoint(
 
     projects_to_set_ids = [project.id for project in projects_to_set]
 
-    return set_projects_status_by_id(db, projects_to_set_ids, is_active)
+    return await set_projects_status_by_id(db, projects_to_set_ids, is_active)
+
 
 @router.patch(
     "/{project_id}",
     response_model=ProjectRead
 )
-def update_project_endpoint(
+async def update_project_endpoint(
     project_id: uuid.UUID,
     project_in: ProjectEdit,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserModel = Depends(get_current_user)
 ) -> ProjectModel:
-    project_db = get_project(db, project_id)
+    project_db = await get_project(db, project_id)
 
     if not project_db:
         raise HTTPException(
@@ -127,9 +125,7 @@ def update_project_endpoint(
             detail="Only owner can edit project info"
         )
 
-    updated_project = update_project(db, project_db, project_in)
-
-    return updated_project
+    return await update_project(db, project_db, project_in)
 
 
 

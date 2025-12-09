@@ -6,23 +6,23 @@ from datetime import datetime
 import httpx
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from app.core.deps import get_current_user
 from app.crud.monitor import (
     create_monitor, get_monitor,
     get_monitors_for_project,
     get_monitors_for_owner_by_ids,
-    set_monitors_status_by_ids
+    set_monitors_status_by_ids, update_monitor
 )
 from app.crud.project import get_project
-from app.db.session import get_db
+from app.db.session import get_async_db
 from app.models.user import User as UserModel
 from app.schemas.monitor import (
     MonitorCreate,
     MonitorRead,
     MonitorStats,
-    MonitorIdList
+    MonitorIdList, MonitorEdit
 )
 from app.schemas.check_result import CheckResultRead
 from app.crud.check_result import (
@@ -42,14 +42,14 @@ router = APIRouter(prefix="/monitors", tags=["monitors"])
     response_model=MonitorRead,
     status_code=status.HTTP_201_CREATED
 )
-def create_monitor_for_project_endpoint(
+async def create_monitor_for_project_endpoint(
     project_id: uuid.UUID,
     monitor_in: MonitorCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserModel = Depends(get_current_user)
 ) -> MonitorRead:
 
-    project = get_project(db, project_id)
+    project = await get_project(db, project_id)
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -62,23 +62,22 @@ def create_monitor_for_project_endpoint(
             detail="Not enough permissions for this project"
         )
 
-    monitor = create_monitor(db, project, monitor_in)
-    return monitor
+    return await create_monitor(db, project, monitor_in)
 
 
 @router.get(
     "/projects/{project_id}",
     response_model=list[MonitorRead]
 )
-def get_monitors_for_project_endpoint(
+async def get_monitors_for_project_endpoint(
     project_id: uuid.UUID,
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserModel = Depends(get_current_user)
 ) -> list[MonitorRead]:
 
-    project = get_project(db, project_id)
+    project = await get_project(db, project_id)
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -91,27 +90,26 @@ def get_monitors_for_project_endpoint(
             detail="Not enough permissions for this project"
         )
 
-    monitors = get_monitors_for_project(db, project_id, skip, limit)
-    return list(monitors)
+    return list(await get_monitors_for_project(db, project_id, skip, limit))
 
 
 @router.get(
     "/{monitor_id}",
     response_model=MonitorRead
 )
-def get_monitor_by_id_endpoint(
+async def get_monitor_by_id_endpoint(
     monitor_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserModel = Depends(get_current_user)
 ) -> MonitorRead:
-    monitor = get_monitor(db, monitor_id)
+    monitor = await get_monitor(db, monitor_id)
     if not monitor:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Monitor not found"
         )
 
-    project = get_project(db, monitor.project_id)
+    project = await get_project(db, monitor.project_id)
     if not project or project.owner_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -126,38 +124,36 @@ def get_monitor_by_id_endpoint(
     response_model=CheckResultRead,
     status_code=status.HTTP_201_CREATED,
 )
-def check_monitor_now_endpoint(
+async def check_monitor_now_endpoint(
     monitor_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserModel = Depends(get_current_user)
 ) -> CheckResultRead:
-    monitor = get_monitor(db, monitor_id)
+    monitor = await get_monitor(db, monitor_id)
     if not monitor:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Monitor not found"
         )
 
-    project = get_project(db, monitor.project_id)
+    project = await get_project(db, monitor.project_id)
     if not project or project.owner_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Monitor not found"
         )
 
-    result = check_monitor_once(db, monitor)
-
-    return result
+    return await check_monitor_once(db, monitor)
 
 
 @router.get(
     "/{monitor_id}/checks",
     response_model=list[CheckResultRead]
 )
-def get_recent_checks_for_monitor_endpoint(
+async def get_recent_checks_for_monitor_endpoint(
     monitor_id: uuid.UUID,
     limit: int = 20,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserModel = Depends(get_current_user)
 ) -> list[CheckResultRead]:
     if limit < 1 or limit > 1000:
@@ -166,28 +162,27 @@ def get_recent_checks_for_monitor_endpoint(
             detail="Limit must be between 1 and 200"
         )
 
-    monitor = get_monitor(db, monitor_id)
+    monitor = await get_monitor(db, monitor_id)
     if not monitor:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Monitor not found"
         )
 
-    project = get_project(db, monitor.project_id)
+    project = await get_project(db, monitor.project_id)
     if not project or project.owner_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Monitor not found"
         )
 
-    results = get_recent_results_for_monitor(db, monitor.id, limit)
-    return list(results)
+    return list(await get_recent_results_for_monitor(db, monitor.id, limit))
 
 
 @router.get("/{monitor_id}/stats", response_model=MonitorStats)
-def get_monitor_stats_endpoint(
+async def get_monitor_stats_endpoint(
     monitor_id: uuid.UUID,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserModel = Depends(get_current_user),
     from_ts: datetime | None = Query(None, description="Start of interval (UTC)"),
     to_ts: datetime | None = Query(None, description="Start of interval (UTC)"),
@@ -197,21 +192,21 @@ def get_monitor_stats_endpoint(
     if from_ts / to_ts is None - period = last 24 hours
     """
 
-    monitor = get_monitor(db, monitor_id)
+    monitor = await get_monitor(db, monitor_id)
     if not monitor:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Monitor not found",
         )
 
-    project = get_project(db, monitor.project_id)
+    project = await get_project(db, monitor.project_id)
     if not project or project.owner_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Monitor not found",
         )
 
-    stats = compute_monitor_stats(
+    stats = await compute_monitor_stats(
         db,
         monitor_id,
         from_ts=from_ts,
@@ -225,37 +220,38 @@ def get_monitor_stats_endpoint(
     "/{monitor_id}/checks-history",
     response_model=list[CheckResultRead]
 )
-def get_checks_history_endpoint(
+async def get_checks_history_endpoint(
     monitor_id: uuid.UUID,
     from_ts: datetime,
     to_ts: datetime,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserModel = Depends(get_current_user)
 ) -> list[CheckResultRead]:
-    monitor = get_monitor(db, monitor_id)
+    monitor = await get_monitor(db, monitor_id)
     if not monitor:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Monitor not found"
         )
 
-    project = get_project(db, monitor.project_id)
+    project = await get_project(db, monitor.project_id)
     if not project and current_user != project.owner_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found"
         )
-    return list(get_checks_in_period(db, monitor_id, from_ts, to_ts))
+
+    return list(await get_checks_in_period(db, monitor_id, from_ts, to_ts))
 
 
 @router.put(
     "/bulk-set-status",
     response_model=int
 )
-def bulk_deactivate_monitors_endpoint(
+async def bulk_deactivate_monitors_endpoint(
     monitors: MonitorIdList,
     is_active: bool,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserModel = Depends(get_current_user)
 ) -> int:
     monitors_ids = monitors.ids
@@ -265,7 +261,7 @@ def bulk_deactivate_monitors_endpoint(
             detail="Monitor list cannot be empty"
         )
 
-    monitors_to_set_status = get_monitors_for_owner_by_ids(
+    monitors_to_set_status = await get_monitors_for_owner_by_ids(
         db,
         monitors_ids,
         current_user.id
@@ -279,15 +275,33 @@ def bulk_deactivate_monitors_endpoint(
 
     checked_ids_to_off = [monitor.id for monitor in monitors_to_set_status]
 
-    return set_monitors_status_by_ids(db, checked_ids_to_off, is_active)
+    return await set_monitors_status_by_ids(db, checked_ids_to_off, is_active)
 
 
+@router.patch("/{monitor_id}", response_model=MonitorRead)
+async def update_monitor_endpoint(
+    monitor_id: uuid.UUID,
+    monitor_in: MonitorEdit,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: UserModel = Depends(get_current_user)
+) -> MonitorRead:
+    monitor_db = await get_monitor(db, monitor_id)
 
+    if not monitor_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Monitor not found"
+        )
 
+    project_db = await get_project(db, monitor_db.project_id)
 
+    if not project_db or project_db.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Monitor not found"
+        )
 
-
-
+    return await update_monitor(db, monitor_db, monitor_in)
 
 
 
