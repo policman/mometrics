@@ -3,15 +3,17 @@ import os
 os.environ["ENVIRONMENT"] = "test"
 
 import pytest
-from app.db.base import Base
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.main import app
-from app.db.session import get_async_db
+
 from app.core.config import get_settings
+from app.db.base import Base
+from app.db.session import get_async_db
+from app.main import app
 
 settings = get_settings()
+
 
 @pytest.fixture(scope="session")
 def engine():
@@ -22,7 +24,7 @@ def engine():
 
     engine = create_engine(settings.database_url, future=True)
 
-    import app.models # noqa: 401
+    import app.models  # noqa: 401
 
     Base.metadata.create_all(bind=engine)
 
@@ -31,6 +33,7 @@ def engine():
     finally:
         Base.metadata.drop_all(bind=engine)
 
+
 @pytest.fixture(scope="function")
 def db_session(engine):
     """
@@ -38,10 +41,7 @@ def db_session(engine):
     At the end of the test, roll back all changes
     """
     SessionLocal = sessionmaker(
-        bind=engine,
-        autoflush=False,
-        autocommit=False,
-        future=True
+        bind=engine, autoflush=False, autocommit=False, future=True
     )
     db = SessionLocal()
     try:
@@ -69,10 +69,3 @@ def client(db_session):
 
     # clear overrides after test
     app.dependency_overrides.clear()
-
-
-
-
-
-
-

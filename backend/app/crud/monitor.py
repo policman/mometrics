@@ -1,25 +1,27 @@
 import uuid
-from typing import Sequence, cast
 from datetime import datetime, timezone
+from typing import Sequence, cast
+
 from sqlalchemy import select, update
 from sqlalchemy.engine import CursorResult
+from sqlalchemy.ext.asyncio.session import AsyncSession
+
 from app.models.monitor import Monitor as MonitorModel
 from app.models.project import Project as ProjectModel
 from app.schemas.monitor import MonitorCreate, MonitorEdit
-from sqlalchemy.ext.asyncio.session import AsyncSession
 
 
 async def create_monitor(
-        db: AsyncSession,
-        project: ProjectModel,
-        monitor_in: MonitorCreate,
+    db: AsyncSession,
+    project: ProjectModel,
+    monitor_in: MonitorCreate,
 ) -> MonitorModel:
     monitor = MonitorModel(
-        project_id = project.id,
+        project_id=project.id,
         name=monitor_in.name,
         target_url=str(monitor_in.target_url),
         check_interval_sec=monitor_in.check_interval_sec,
-        is_active=monitor_in.is_active
+        is_active=monitor_in.is_active,
     )
     db.add(monitor)
     await db.commit()
@@ -28,22 +30,17 @@ async def create_monitor(
 
 
 async def get_monitor(
-        db: AsyncSession,
-        monitor_id: uuid.UUID,
+    db: AsyncSession,
+    monitor_id: uuid.UUID,
 ) -> MonitorModel | None:
-    return (
-        await db.scalar(
-            select(MonitorModel)
-            .where(MonitorModel.id == monitor_id)
-        )
-    )
+    return await db.scalar(select(MonitorModel).where(MonitorModel.id == monitor_id))
 
 
 async def get_monitors_for_project(
-        db: AsyncSession,
-        project_id: uuid.UUID,
-        skip: int = 0,
-        limit: int = 100,
+    db: AsyncSession,
+    project_id: uuid.UUID,
+    skip: int = 0,
+    limit: int = 100,
 ) -> Sequence[MonitorModel]:
     return (
         await db.scalars(
@@ -56,35 +53,30 @@ async def get_monitors_for_project(
 
 
 async def get_monitors_for_owner_by_ids(
-        db: AsyncSession,
-        monitor_ids: list[uuid.UUID],
-        user_id: uuid.UUID
+    db: AsyncSession, monitor_ids: list[uuid.UUID], user_id: uuid.UUID
 ) -> Sequence[MonitorModel]:
-    return (await db.scalars(
-        select(MonitorModel)
-        .join(ProjectModel, MonitorModel.project_id == ProjectModel.id)
-        .where(
-            MonitorModel.id.in_(monitor_ids),
-            ProjectModel.owner_id == user_id
+    return (
+        await db.scalars(
+            select(MonitorModel)
+            .join(ProjectModel, MonitorModel.project_id == ProjectModel.id)
+            .where(
+                MonitorModel.id.in_(monitor_ids),
+                ProjectModel.owner_id == user_id,
+            )
         )
-    )).all()
+    ).all()
 
 
 async def set_monitors_status_by_ids(
-        db: AsyncSession,
-        monitor_ids: list[uuid.UUID],
-        is_active: bool
+    db: AsyncSession, monitor_ids: list[uuid.UUID], is_active: bool
 ):
     result = await db.execute(
         update(MonitorModel)
         .where(
             MonitorModel.id.in_(monitor_ids),
-            MonitorModel.is_active.is_(not is_active)
+            MonitorModel.is_active.is_(not is_active),
         )
-        .values(
-            is_active=is_active,
-            updated_at=datetime.now(timezone.utc)
-        )
+        .values(is_active=is_active, updated_at=datetime.now(timezone.utc))
     )
     rows_affected = cast(CursorResult, result).rowcount
 
@@ -93,7 +85,7 @@ async def set_monitors_status_by_ids(
             update(ProjectModel)
             .where(
                 ProjectModel.id == MonitorModel.project_id,
-                ProjectModel.is_active.is_(False)
+                ProjectModel.is_active.is_(False),
             )
             .values(is_active=True)
         )

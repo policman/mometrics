@@ -8,10 +8,10 @@ class CheckResultBase(BaseModel):
     is_up: bool
     status_code: int | None = None
     response_time_ms: int | None = Field(
-        default=None,
-        description="Response time in milliseconds"
+        default=None, description="Response time in milliseconds"
     )
     error_message: str | None = None
+
 
 class CheckResultRead(CheckResultBase):
     id: uuid.UUID

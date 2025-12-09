@@ -9,13 +9,12 @@ from app.db.session import get_async_db
 
 settings = get_settings()
 
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.api_v1_prefix}/auth/login"
-)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.api_v1_prefix}/auth/login")
+
 
 async def get_current_user(
-        token: str = Depends(oauth2_scheme),
-        db: AsyncSession = Depends(get_async_db)
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_async_db),
 ):
     # try to decode token
     try:

@@ -1,5 +1,5 @@
-from datetime import datetime
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 
@@ -9,8 +9,10 @@ class ProjectBase(BaseModel):
     description: str | None = None
     is_active: bool = True
 
+
 class ProjectCreate(ProjectBase):
     pass
+
 
 class ProjectRead(ProjectBase):
     id: uuid.UUID
@@ -21,8 +23,10 @@ class ProjectRead(ProjectBase):
     class ConfigDict:
         from_attributes = True
 
+
 class ProjectIdList(BaseModel):
     ids: list[uuid.UUID]
+
 
 class ProjectEdit(BaseModel):
     name: str = Field(max_length=100, default=None)

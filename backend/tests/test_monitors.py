@@ -1,20 +1,19 @@
-from fastapi.testclient import TestClient
 from datetime import datetime, timedelta, timezone
+
+import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import select
+
 from app.models.check_result import CheckResult as CheckResultModel
 from app.models.monitor import Monitor as MonitorModel
-import pytest
+
 
 def register_user_and_login(client: TestClient, email: str, password: str) -> str:
-    resp = client.post(
-        "/api/v1/users",
-        json={"email": email, "password": password}
-    )
+    resp = client.post("/api/v1/users", json={"email": email, "password": password})
     assert resp.status_code == 201
 
     resp = client.post(
-        "/api/v1/auth/login",
-        data={"username": email, "password": password}
+        "/api/v1/auth/login", data={"username": email, "password": password}
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -30,7 +29,7 @@ def create_project(client: TestClient, token: str, name: str = "Test project") -
     resp = client.post(
         "/api/v1/projects",
         json={"name": name, "description": "test_project"},
-        headers=auth_headers(token)
+        headers=auth_headers(token),
     )
     assert resp.status_code == 201
     return resp.json()
@@ -49,7 +48,7 @@ def test_create_monitor_for_project(client: TestClient):
             "check_interval_sec": 60,
             "is_active": True,
         },
-        headers=auth_headers(token)
+        headers=auth_headers(token),
     )
 
     assert resp.status_code == 201
@@ -79,8 +78,7 @@ def test_check_monitor_now(client: TestClient):
     monitor_id = monitor["id"]
 
     resp = client.post(
-        f"/api/v1/monitors/{monitor_id}/check",
-        headers=auth_headers(token)
+        f"/api/v1/monitors/{monitor_id}/check", headers=auth_headers(token)
     )
     assert resp.status_code == 201
     data = resp.json()
@@ -96,13 +94,13 @@ def test_list_recent_checks(client: TestClient):
 
     resp = client.post(
         f"/api/v1/monitors/projects/{project_id}",
-        json = {
+        json={
             "name": "History monitor",
             "target_url": "https://httpbin.org/status/200",
             "check_interval": 60,
             "is_active": True,
         },
-        headers=auth_headers(token)
+        headers=auth_headers(token),
     )
     assert resp.status_code == 201
     monitor = resp.json()
@@ -110,15 +108,14 @@ def test_list_recent_checks(client: TestClient):
 
     for _ in range(3):
         r = client.post(
-            f"/api/v1/monitors/{monitor_id}/check",
-            headers=auth_headers(token)
+            f"/api/v1/monitors/{monitor_id}/check", headers=auth_headers(token)
         )
         assert r.status_code == 201
 
     resp = client.get(
         f"/api/v1/monitors/{monitor_id}/checks",
         params={"limit": 2},
-        headers=auth_headers(token)
+        headers=auth_headers(token),
     )
 
     assert resp.status_code == 200
@@ -136,13 +133,13 @@ def test_cannot_access_other_users_monitor(client: TestClient):
 
     resp = client.post(
         f"/api/v1/monitors/projects/{project_x_id}",
-        json = {
+        json={
             "name": "Private monitor",
             "target_url": "https://example.com",
             "check_interval_sec": 60,
             "is_active": True,
         },
-        headers=auth_headers(token_x)
+        headers=auth_headers(token_x),
     )
     assert resp.status_code == 201
     monitor_x = resp.json()
@@ -152,16 +149,12 @@ def test_cannot_access_other_users_monitor(client: TestClient):
     token_y = register_user_and_login(client, "other@example.com", "password123")
 
     # user Y try to get monitor X
-    resp = client.get(
-        f"/api/v1/monitors/{monitor_x_id}",
-        headers=auth_headers(token_y)
-    )
+    resp = client.get(f"/api/v1/monitors/{monitor_x_id}", headers=auth_headers(token_y))
     assert resp.status_code in (403, 404)
 
     # user Y try to do check with monitor Y
     resp = client.post(
-        f"/api/v1/monitors/{monitor_x_id}/check",
-        headers=auth_headers(token_y)
+        f"/api/v1/monitors/{monitor_x_id}/check", headers=auth_headers(token_y)
     )
     assert resp.status_code in (403, 404)
 
@@ -181,7 +174,7 @@ def test_monitor_stats_basic(client: TestClient, db_session):
             "check_interval_sec": 60,
             "is_active": True,
         },
-        headers=auth_headers(token)
+        headers=auth_headers(token),
     )
     assert resp.status_code == 201
     monitor = resp.json()
@@ -194,10 +187,7 @@ def test_monitor_stats_basic(client: TestClient, db_session):
     db = db_session
 
     # find monitor like a model
-    m = (db.scalars(
-        select(MonitorModel)
-        .where(MonitorModel.id == monitor_id)
-    )).first()
+    m = (db.scalars(select(MonitorModel).where(MonitorModel.id == monitor_id))).first()
     assert m is not None
 
     results = [
@@ -242,43 +232,3 @@ def test_monitor_stats_basic(client: TestClient, db_session):
     assert data["uptime_percent"] == pytest.approx(66.6, rel=0.05)
     assert data["last_status_up"] is True
     assert data["last_status_code"] == 200
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

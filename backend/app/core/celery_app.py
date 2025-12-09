@@ -29,4 +29,3 @@ celery_app.conf.beat_schedule = {
         "schedule": 15.0,
     }
 }
-

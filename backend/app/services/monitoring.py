@@ -1,12 +1,15 @@
-import time
-import httpx
 import logging
+import time
+
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.redis_client import get_redis_client
 from app.crud.check_result import create_check_result
 from app.models.monitor import Monitor as MonitorModel
 
 logger = logging.getLogger("app.monitoring")
+
 
 async def perform_http_check(target_url: str, timeout: float = 10.0) -> dict:
     start = time.monotonic()
@@ -33,12 +36,16 @@ async def perform_http_check(target_url: str, timeout: float = 10.0) -> dict:
     if error_message:
         logger.warning(
             "Monitor check failed: url=%s error=%s response_time_ms=%s",
-            target_url, error_message, response_time_ms,
+            target_url,
+            error_message,
+            response_time_ms,
         )
     else:
         logger.info(
             "Monitor check OK: url=%s status=%s response_time_ms=%s",
-            target_url, status_code, response_time_ms,
+            target_url,
+            status_code,
+            response_time_ms,
         )
 
     return {
@@ -47,6 +54,7 @@ async def perform_http_check(target_url: str, timeout: float = 10.0) -> dict:
         "response_time_ms": response_time_ms,
         "error_message": error_message,
     }
+
 
 async def check_monitor_once(db: AsyncSession, monitor: MonitorModel):
     result_data = await perform_http_check(monitor.target_url)
@@ -57,7 +65,7 @@ async def check_monitor_once(db: AsyncSession, monitor: MonitorModel):
         is_up=result_data["is_up"],
         status_code=result_data["status_code"],
         response_time_ms=result_data["response_time_ms"],
-        error_message=result_data["error_message"]
+        error_message=result_data["error_message"],
     )
 
     redis_client = get_redis_client()

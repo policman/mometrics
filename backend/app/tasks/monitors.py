@@ -1,22 +1,22 @@
-import uuid
 import asyncio
+import uuid
 from datetime import datetime, timezone
-from sqlalchemy import select
-from celery.utils.log import get_task_logger
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from celery.utils.log import get_task_logger
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
-from app.core.config import get_settings
+
 
 from app.core.celery_app import celery_app
+from app.core.config import get_settings
 from app.crud.monitor import get_monitor
-from app.models import Monitor, CheckResult
+from app.models import CheckResult, Monitor
 from app.services.monitoring import check_monitor_once
 
 logger = get_task_logger(__name__)
 
 settings = get_settings()
-
 
 celery_engine = create_async_engine(
     str(settings.database_url),
@@ -24,7 +24,6 @@ celery_engine = create_async_engine(
 )
 
 CelerySessionLocal = async_sessionmaker(bind=celery_engine, expire_on_commit=False)
-
 
 
 async def _run_monitor_check_logic(monitor_id: str):
@@ -35,12 +34,13 @@ async def _run_monitor_check_logic(monitor_id: str):
             return
         await check_monitor_once(db, monitor)
 
+
 async def _schedule_due_monitors_logic():
     async with CelerySessionLocal() as db:
         now = datetime.now(timezone.utc)
-        monitors = (await db.scalars(
-            select(Monitor).where(Monitor.is_active.is_(True))
-        )).all()
+        monitors = (
+            await db.scalars(select(Monitor).where(Monitor.is_active.is_(True)))
+        ).all()
 
         for monitor in monitors:
             last_result = await db.scalar(
@@ -64,10 +64,15 @@ async def _schedule_due_monitors_logic():
             if due:
                 run_monitor_check.delay(str(monitor.id))
 
+
+
+
 @celery_app.task
 def run_monitor_check(monitor_id: str) -> None:
     asyncio.run(_run_monitor_check_logic(monitor_id))
 
+
 @celery_app.task
 def schedule_due_monitors() -> None:
     asyncio.run(_schedule_due_monitors_logic())
+

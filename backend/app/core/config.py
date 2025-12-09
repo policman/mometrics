@@ -1,9 +1,10 @@
 import os
+
 ENV = os.getenv("ENVIRONMENT", "dev")
 
 from functools import lru_cache
 
-from pydantic import Field, AnyUrl
+from pydantic import AnyUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -49,7 +50,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env.test" if ENV == "test" else ".env",
         env_file_encoding="utf-8",
-        extra="ignore"
+        extra="ignore",
     )
 
 

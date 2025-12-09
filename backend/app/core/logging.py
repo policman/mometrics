@@ -32,7 +32,11 @@ def setup_logging() -> None:
             "handlers": ["console"],
         },
         "loggers": {
-            "app": {"level": log_level, "handlers": ["console"], "propagate": False},
+            "app": {
+                "level": log_level,
+                "handlers": ["console"],
+                "propagate": False,
+            },
         },
     }
 

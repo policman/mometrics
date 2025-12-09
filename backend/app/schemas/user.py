@@ -9,8 +9,10 @@ class UserBase(BaseModel):
     is_active: bool = True
     is_superuser: bool = False
 
+
 class UserCreate(UserBase):
-    password: str #temp
+    password: str  # temp
+
 
 class UserRead(UserBase):
     id: uuid.UUID

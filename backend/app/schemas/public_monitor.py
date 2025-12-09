@@ -1,7 +1,7 @@
 import uuid
+from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
-from datetime import datetime, timezone
 
 
 class PublicMonitorRead(BaseModel):
@@ -11,6 +11,7 @@ class PublicMonitorRead(BaseModel):
     check_interval: int = 60
     is_active: bool = True
     updated_at: datetime = Field(default=datetime.now(timezone.utc))
+    project_id: uuid.UUID
 
     class ConfigDict:
         from_attributes = True

@@ -1,7 +1,8 @@
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, Field
-from datetime import datetime
+
 
 class PublicProjectRead(BaseModel):
     id: uuid.UUID
@@ -12,6 +13,7 @@ class PublicProjectRead(BaseModel):
 
     class ConfigDict:
         from_attributes = True
+
 
 class PublicProjectStats(PublicProjectRead):
     uptime_percent: float = 0.0

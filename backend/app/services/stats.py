@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta, timezone
 import json
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,7 +15,7 @@ async def compute_monitor_stats(
     monitor_id,
     *,
     from_ts: datetime | None = None,
-    to_ts: datetime | None = None
+    to_ts: datetime | None = None,
 ) -> MonitorStats:
     """
     Calculate stats of monitor's checks for period.
@@ -49,7 +49,7 @@ async def compute_monitor_stats(
         .where(
             CheckResult.monitor_id == monitor_id,
             CheckResult.checked_at >= from_ts,
-            CheckResult.checked_at <= to_ts
+            CheckResult.checked_at <= to_ts,
         )
         .order_by(CheckResult.checked_at.desc())
     )
@@ -89,7 +89,7 @@ async def compute_monitor_stats(
         avg_response_time_ms=avg_response_time_ms,
         last_status_up=last_status_up,
         last_status_code=last_status_code,
-        last_check_at=last_check_at
+        last_check_at=last_check_at,
     )
 
     # 3 - put in cache (if period is default)
@@ -101,13 +101,3 @@ async def compute_monitor_stats(
         )
 
     return stats
-
-
-
-
-
-
-
-
-
-

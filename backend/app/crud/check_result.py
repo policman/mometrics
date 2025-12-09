@@ -1,10 +1,12 @@
 import uuid
-from typing import Sequence
 from datetime import datetime
+from typing import Sequence
+
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from app.models.check_result import CheckResult as CheckResultModel
-from sqlalchemy.ext.asyncio.session import AsyncSession
+
 
 async def create_check_result(
     db: AsyncSession,
@@ -19,12 +21,13 @@ async def create_check_result(
         is_up=is_up,
         status_code=status_code,
         response_time_ms=response_time_ms,
-        error_message=error_message
+        error_message=error_message,
     )
     db.add(result)
     await db.commit()
     await db.refresh(result)
     return result
+
 
 async def get_recent_results_for_monitor(
     db: AsyncSession,
@@ -46,21 +49,14 @@ async def get_checks_in_period(
     from_ts: datetime,
     to_ts: datetime,
 ) -> Sequence[CheckResultModel]:
-    return (await db.scalars(
-        select(CheckResultModel)
-        .where(
-            CheckResultModel.monitor_id == monitor_id,
-            CheckResultModel.checked_at >= from_ts,
-            CheckResultModel.checked_at <= to_ts
+    return (
+        await db.scalars(
+            select(CheckResultModel)
+            .where(
+                CheckResultModel.monitor_id == monitor_id,
+                CheckResultModel.checked_at >= from_ts,
+                CheckResultModel.checked_at <= to_ts,
+            )
+            .order_by(CheckResultModel.checked_at.asc())
         )
-        .order_by(CheckResultModel.checked_at.asc())
-    )).all()
-
-
-
-
-
-
-
-
-
+    ).all()
