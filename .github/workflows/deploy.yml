@@ -1,0 +1,51 @@
+# .github/workflows/deploy.yml
+name: Deploy Mometrics to Production
+
+# Запускать пайплайн при пуше в ветку main
+on:
+  push:
+    branches:
+      - main
+
+# Разрешаем Actions использовать наш токен для взаимодействия с API
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          # Используем приватный ключ, который мы сохранили в Secrets
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy via SSH
+        # Это скрипт, который выполняет все наши команды на сервере
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            
+            # 1. Переходим в папку проекта
+            cd ~/mometrics-deploy
+            
+            # 2. Скачиваем последние изменения
+            git pull
+            
+            # 3. Пересобираем и перезапускаем Docker Compose
+            # --build: пересобирает образы (Backend, Frontend)
+            # --force-recreate: гарантирует пересоздание
+            # --detach: запускает в фоне
+            docker compose up --build --force-recreate --detach
+            
+            # 4. Применяем миграции (если были изменения в БД)
+            docker compose exec backend alembic upgrade head
+            
+            # 5. Перезапускаем Celery Worker и Beat (чтобы подхватили новый код)
+            docker compose restart celery_worker celery_beat
+            
+            echo "Deployment finished successfully!"
+          EOF
