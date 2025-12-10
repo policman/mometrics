@@ -164,7 +164,14 @@ export function PublicMonitorPage() {
 
             {/* HEADER */}
             <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                    <IconButton component={RouterLink} to={`/view/projects/${monitor.project_id}/monitors`} sx={{ border: '1px solid #30363d' }}>
+
+                    {/* КНОПКА НАЗАД */}
+                    {/* monitor.project_id теперь точно существует, так как мы прошли проверки выше */}
+                    <IconButton
+                        component={RouterLink}
+                        to={`/view/projects/${monitor.project_id}/monitors`}
+                        sx={{ border: '1px solid #30363d' }}
+                    >
                         <ArrowBack />
                     </IconButton>
 

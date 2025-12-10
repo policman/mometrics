@@ -2,7 +2,7 @@ services:
   db:
     image: postgres:16
     container_name: mometrics-db
-    restart: unless-stopped
+    restart: always
     environment:
       POSTGRES_USER: mometrics
       POSTGRES_PASSWORD: mometrics
@@ -11,14 +11,89 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mometrics"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
     container_name: mometrics-redis
-    restart: unless-stopped
+    restart: always
     ports:
       - "6379:6379"
     command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: mometrics-backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=mometrics
+      - DB_PASSWORD=mometrics
+      - DB_NAME=mometrics
+      - REDIS_URL=redis://redis:6379/0
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  celery_worker:
+    build: ./backend
+    container_name: mometrics-worker
+    restart: always
+    depends_on:
+      - backend
+      - redis
+    env_file:
+      - ./backend/.env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=mometrics
+      - DB_PASSWORD=mometrics
+      - DB_NAME=mometrics
+      - REDIS_URL=redis://redis:6379/0
+    command: celery -A app.core.celery_app worker --loglevel=info
+
+  celery_beat:
+    build: ./backend
+    container_name: mometrics-beat
+    restart: always
+    depends_on:
+      - backend
+      - redis
+    env_file:
+      - ./backend/.env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=mometrics
+      - DB_PASSWORD=mometrics
+      - DB_NAME=mometrics
+      - REDIS_URL=redis://redis:6379/0
+    command: celery -A app.core.celery_app beat --loglevel=info
+
+  frontend:
+    build: ./frontend
+    container_name: mometrics-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:

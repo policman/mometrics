@@ -3,8 +3,6 @@ import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
     Alert,
     Box,
-    Card,
-    CardContent,
     CircularProgress,
     Grid,
     Typography,
@@ -32,7 +30,7 @@ import {
     ArrowBack,
     Refresh,
     Edit as EditIcon,
-    Delete as DeleteIcon,
+    // DeleteIcon удален
     PlayCircleOutline,
     PauseCircleOutline,
     Close as CloseIcon,
@@ -49,18 +47,18 @@ import {
     ResponsiveContainer,
 } from 'recharts';
 
-// Импортируем функции чтения (они у вас были в api/monitor.ts)
+// Импортируем функции чтения
 import {
     getMonitor,
     getMonitorStats,
     getMonitorChecksHistory,
-    type Monitor, // Интерфейс монитора
+    type Monitor,
     type CheckResult,
     type MonitorStats,
 } from '../api/monitor';
 
-// Импортируем функции записи (которые мы добавили в api/monitors.ts)
-import { updateMonitor, deleteMonitor } from '../api/monitors';
+// Импортируем функции записи (deleteMonitor УДАЛЕН)
+import { updateMonitor } from '../api/monitors';
 
 import {
     formatChecksForCharts,
@@ -148,7 +146,8 @@ const AvailabilityHeatmap = ({ heatmapData, onCellClick, selectedCellId }: Heatm
 
 export function MonitorPage() {
     const { monitorId } = useParams<{ monitorId: string }>();
-    const navigate = useNavigate();
+    // navigate больше не нужен для удаления, но оставим на всякий случай
+    // const navigate = useNavigate();
 
     // --- STATE ---
     const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -163,7 +162,7 @@ export function MonitorPage() {
 
     // Dialog States
     const [isEditOpen, setIsEditOpen] = useState(false);
-    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    // isDeleteOpen удален
     const [processing, setProcessing] = useState(false);
 
     // Edit Form State
@@ -177,8 +176,10 @@ export function MonitorPage() {
     const fetchData = async () => {
         if (!monitorId) return;
         try {
+            // Не сбрасываем loading в true полностью, чтобы не мигало, если данные обновляются
+            if (!monitor) setLoading(true);
             setError(null);
-            // 1. Monitor & Stats
+
             const [m, s] = await Promise.all([
                 getMonitor(monitorId),
                 getMonitorStats(monitorId)
@@ -186,7 +187,6 @@ export function MonitorPage() {
             setMonitor(m);
             setStats(s);
 
-            // 2. Checks History
             const start = new Date(selectedDate);
             start.setHours(0,0,0,0);
             const end = new Date(selectedDate);
@@ -204,7 +204,6 @@ export function MonitorPage() {
     };
 
     useEffect(() => {
-        setLoading(true);
         fetchData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [monitorId, selectedDate]);
@@ -212,7 +211,6 @@ export function MonitorPage() {
 
     // --- HANDLERS ---
 
-    // 1. Открытие диалога редактирования
     const handleOpenEdit = () => {
         if (!monitor) return;
         setEditName(monitor.name);
@@ -222,7 +220,6 @@ export function MonitorPage() {
         setIsEditOpen(true);
     };
 
-    // 2. Сохранение изменений
     const handleSaveMonitor = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!monitor) return;
@@ -235,7 +232,7 @@ export function MonitorPage() {
                 check_interval_sec: editInterval,
                 is_active: editActive
             });
-            setMonitor(updated); // Обновляем локальный стейт
+            setMonitor(updated);
             setIsEditOpen(false);
         } catch (err) {
             console.error(err);
@@ -244,40 +241,6 @@ export function MonitorPage() {
             setProcessing(false);
         }
     };
-
-    // 3. Быстрое переключение статуса (из хедера или диалога)
-    // Можно использовать внутри диалога handleSaveMonitor,
-    // но если хотим переключать прямо с хедера, нужна отдельная функция.
-    const handleToggleStatus = async () => {
-        if (!monitor) return;
-        try {
-            // Оптимистичное обновление
-            const newStatus = !monitor.is_active;
-            setMonitor({ ...monitor, is_active: newStatus });
-
-            await updateMonitor(monitor.id, { is_active: newStatus });
-        } catch (err) {
-            console.error(err);
-            // Откат
-            setMonitor({ ...monitor!, is_active: !monitor!.is_active });
-        }
-    }
-
-    // 4. Удаление
-    const handleDeleteMonitor = async () => {
-        if (!monitor) return;
-        try {
-            setProcessing(true);
-            await deleteMonitor(monitor.id);
-            // Редирект обратно к списку мониторов проекта
-            navigate(`/app/projects/${monitor.project_id}/monitors`);
-        } catch (err) {
-            console.error(err);
-            alert('Ошибка при удалении');
-            setProcessing(false);
-        }
-    };
-
 
     // --- MEMOIZED DATA ---
     const { responseTimeData, heatmapData, intervalChecks } = useMemo(() => {
@@ -309,7 +272,6 @@ export function MonitorPage() {
                     <Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                             <Typography variant="h5" fontWeight="bold">{monitor.name}</Typography>
-                            {/* Статус Chip */}
                             <Chip
                                 label={monitor.is_active ? "Активен" : "На паузе"}
                                 color={monitor.is_active ? "success" : "default"}
@@ -339,19 +301,13 @@ export function MonitorPage() {
                         >
                             Изменить
                         </Button>
-                        <Button
-                            variant="outlined"
-                            color="error"
-                            startIcon={<DeleteIcon />}
-                            onClick={() => setIsDeleteOpen(true)}
-                        >
-                            Удалить
-                        </Button>
-                        <Tooltip title="Обновить данные">
+                        {/* КНОПКА УДАЛИТЬ УБРАНА */}
+
+                        <MuiTooltip title="Обновить данные">
                             <IconButton onClick={fetchData} sx={{ border: '1px solid #30363d' }}>
                                 <Refresh />
                             </IconButton>
-                        </Tooltip>
+                        </MuiTooltip>
                     </Stack>
             </Box>
 
@@ -565,28 +521,6 @@ export function MonitorPage() {
                         </Button>
                     </DialogActions>
                 </Box>
-            </Dialog>
-
-            {/* --- DELETE CONFIRMATION --- */}
-            <Dialog
-                open={isDeleteOpen}
-                onClose={() => setIsDeleteOpen(false)}
-                maxWidth="xs"
-                fullWidth
-            >
-                <DialogTitle>Удалить монитор?</DialogTitle>
-                <DialogContent>
-                    <Typography>
-                        Вы уверены, что хотите удалить монитор <b>{monitor.name}</b>?
-                        История проверок будет потеряна навсегда.
-                    </Typography>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setIsDeleteOpen(false)} color="inherit">Отмена</Button>
-                    <Button onClick={handleDeleteMonitor} color="error" variant="contained" disabled={processing}>
-                        {processing ? 'Удаление...' : 'Удалить'}
-                    </Button>
-                </DialogActions>
             </Dialog>
 
         </Box>
